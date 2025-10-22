@@ -344,7 +344,6 @@ lerobot train \
 | `train.py` | Training helper script | 3.9KB |
 | `single_pika_data_params.yaml` | Sensor configuration | 501B |
 | `requirements.txt` | Python dependencies | 773B |
-| `LEROBOT_VERSION_NOTES.md` | LeRobot 0.3.x compatibility notes | 4.1KB |
 | `README.md` | Complete documentation | - |
 
 ---
@@ -365,9 +364,3 @@ lerobot train \
 - **Pika SDK**: https://github.com/agilexrobotics/pika_sdk
 - **Ufactory Teleop**: https://github.com/xArm-Developer/ufactory_teleop
 - **LeRobot**: https://github.com/huggingface/lerobot
-
----
-
-**Version**: v1.5.0  
-**Last Update**: 2024-10-22  
-**LeRobot Compatibility**: 0.3.x
