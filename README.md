@@ -2,7 +2,7 @@
 
 Multi-sensor synchronized data capture and conversion toolkit for Pika Sense (Python, no ROS required)
 
-**Complete Pipeline**: Data Capture → HDF5 → LeRobot Format → Model Training
+**Complete Pipeline**: Data Capture → HDF5 → LeRobot Format
 
 **LeRobot Version**: 0.3.x compatible
 
@@ -69,24 +69,14 @@ python hdf5_to_lerobot.py \
 
 **Output:** LeRobot dataset with videos (MP4) and data (Parquet)
 
-### Step 4: Train Policy (Optional)
+### Step 4: Verify Dataset (Optional)
 
 ```bash
-# Verify dataset
+# Verify LeRobot dataset is correctly formatted
 python train.py
-
-# Start training (using LeRobot CLI)
-lerobot train \
-    --dataset-repo-id local/pika_dataset \
-    --root ./lerobot_data \
-    --policy-name diffusion \
-    --output-dir ./outputs \
-    --num-epochs 100 \
-    --batch-size 8 \
-    --device cuda
 ```
 
-**Output:** Trained policy checkpoint in `./outputs/`
+**Output:** Dataset validation report (episodes, frames, observations)
 
 ---
 
@@ -113,164 +103,9 @@ lerobot train \
 ### train.py
 - `--dataset-repo-id`: Dataset repo ID (default: `local/pika_dataset`)
 - `--dataset-root`: Local dataset path (default: `./lerobot_data`)
-- `--output-dir`: Output directory (default: `./outputs`)
-- `--policy`: Policy type (`diffusion`, `act`, `tdmpc`)
-- `--batch-size`: Training batch size (default: `8`)
-- `--num-epochs`: Number of epochs (default: `100`)
-- `--device`: Device (`cuda` or `cpu`)
 
 ---
 
-## Data Format
-
-### Sensor Data
-
-**Gripper** (`gripper/encoder/pika/*.json`):
-```json
-{"distance": 99.00}
-```
-
-**Pose** (`localization/pose/pika/*.json`):
-```json
-{"x": 0.0, "y": 0.0, "z": 0.0, "roll": 0.0, "pitch": 0.0, "yaw": 0.0}
-```
-
-### LeRobot Format
-
-**observation.state** (7-dim vector):
-```
-[gripper_distance, x, y, z, roll, pitch, yaw]
-```
-
-**observation.images**:
-- `pikaDepthCamera`: RGB image (3, 480, 640)
-- `pikaFisheyeCamera`: RGB image (3, 480, 640)
-
-**action** (7-dim vector): Same as observation.state (teleoperation data)
-
----
-
-## Training Details
-
-<details>
-<summary><b>Click to expand training guide</b></summary>
-
-### Prerequisites
-
-```bash
-# Ensure LeRobot is installed in your environment
-python -c "import lerobot; print(f'LeRobot {lerobot.__version__}')"
-
-# Should output: LeRobot 0.3.x
-```
-
-### Load Dataset (LeRobot 0.3.x)
-
-```python
-from lerobot.datasets.lerobot_dataset import LeRobotDataset
-from pathlib import Path
-
-# Load local dataset (requires valid repo_id + root path)
-ds = LeRobotDataset(
-    repo_id='local/pika_dataset',
-    root=str(Path('./lerobot_data').resolve())
-)
-
-print(f"Episodes: {ds.meta.info['total_episodes']}")
-print(f"Frames: {ds.meta.info['total_frames']}")
-```
-
-### Training Commands
-
-**Quick Test (3 epochs)**:
-```bash
-lerobot train \
-  --dataset-repo-id local/pika_dataset \
-  --root ./lerobot_data \
-  --policy-name diffusion \
-  --output-dir ./outputs/test \
-  --num-epochs 3 \
-  --batch-size 2 \
-  --device cuda
-```
-
-**Full Training**:
-```bash
-lerobot train \
-  --dataset-repo-id local/pika_dataset \
-  --root ./lerobot_data \
-  --policy-name diffusion \
-  --output-dir ./outputs \
-  --num-epochs 100 \
-  --batch-size 8 \
-  --lr 1e-4 \
-  --device cuda \
-  --eval-freq 10
-```
-
-**With Weights & Biases**:
-```bash
-lerobot train \
-  --dataset-repo-id local/pika_dataset \
-  --root ./lerobot_data \
-  --policy-name diffusion \
-  --output-dir ./outputs \
-  --wandb-project pika-training \
-  --wandb-entity your-username
-```
-
-### Available Policies
-
-| Policy | Description | Best For |
-|--------|-------------|----------|
-| `diffusion` | Diffusion Policy | Smooth trajectories (recommended) |
-| `act` | Action Chunking Transformer | Sequential tasks |
-| `tdmpc` | TD-MPC | Model-based RL |
-
-### Data Requirements
-
-- **Minimum**: 10+ episodes for meaningful training
-- **Recommended**: 50-100 episodes for robust policies
-- **Current dataset**: 1 episode (validation only)
-
-</details>
-
----
-
-## Example Workflow
-
-```bash
-# 1. Capture 3 episodes
-python data_capture.py --episode 0 --fps 30
-python data_capture.py --episode 1 --fps 30
-python data_capture.py --episode 2 --fps 30
-
-# 2. Convert to HDF5
-for i in 0 1 2; do
-    python data_to_hdf5.py \
-        --type single_pika \
-        --datasetDir ./captured_data \
-        --episodeName episode${i} \
-        --useIndex True
-done
-
-# 3. Convert to LeRobot
-python hdf5_to_lerobot.py \
-    --type single_pika \
-    --datasetDir ./captured_data \
-    --datasetName pika_demo \
-    --targetDir ./lerobot_data
-
-# 4. Train policy (optional)
-lerobot train \
-    --dataset-repo-id local/pika_dataset \
-    --root ./lerobot_data \
-    --policy-name diffusion \
-    --output-dir ./outputs \
-    --num-epochs 100
-```
-
----
 
 ## System Requirements
 
