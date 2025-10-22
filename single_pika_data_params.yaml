@@ -1,0 +1,22 @@
+# Pika Sense Sensor Configuration
+# Compatible with data_capture.py and data_to_hdf5.py
+
+/**:
+  ros__parameters:
+    dataInfo:
+      # Camera sensors
+      camera:
+        color:
+          names: ['pikaDepthCamera', 'pikaFisheyeCamera']
+        depth:
+          names: ['pikaDepthCamera']
+      
+      # Localization (Vive Tracker 6DOF pose)
+      localization:
+        pose:
+          names: ['pika']
+      
+      # Gripper (distance sensor)
+      gripper:
+        encoder:
+          names: ['pika']
