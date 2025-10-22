@@ -212,9 +212,5 @@ python hdf5_to_lerobot.py \
 
 - **Pika ROS**: https://github.com/agilexrobotics/pika_ros
 - **Pika SDK**: https://github.com/agilexrobotics/pika_sdk
+- **Ufactory Teleop**: https://github.com/xArm-Developer/ufactory_teleop
 - **LeRobot**: https://github.com/huggingface/lerobot
-
----
-
-**Version**: v1.4.0  
-**Last Update**: 2024-10-22
