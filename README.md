@@ -4,6 +4,8 @@ Multi-sensor synchronized data capture and conversion toolkit for Pika Sense (Py
 
 **Complete Pipeline**: Data Capture → HDF5 → LeRobot Format → Model Training
 
+**LeRobot Version**: 0.3.x compatible
+
 ---
 
 ## Quick Start
@@ -69,6 +71,25 @@ python hdf5_to_lerobot.py \
 
 **Output:** LeRobot dataset with videos (MP4) and data (Parquet)
 
+### Step 4: Train Policy (Optional)
+
+```bash
+# Verify dataset
+python train.py
+
+# Start training (using LeRobot CLI)
+lerobot train \
+    --dataset-repo-id local/pika_dataset \
+    --root ./lerobot_data \
+    --policy-name diffusion \
+    --output-dir ./outputs \
+    --num-epochs 100 \
+    --batch-size 8 \
+    --device cuda
+```
+
+**Output:** Trained policy checkpoint in `./outputs/`
+
 ---
 
 ## Command Line Arguments
@@ -90,6 +111,15 @@ python hdf5_to_lerobot.py \
 - `--datasetDir`: Directory containing HDF5 files
 - `--datasetName`: LeRobot dataset name
 - `--targetDir`: Output directory
+
+### train.py
+- `--dataset-repo-id`: Dataset repo ID (default: `local/pika_dataset`)
+- `--dataset-root`: Local dataset path (default: `./lerobot_data`)
+- `--output-dir`: Output directory (default: `./outputs`)
+- `--policy`: Policy type (`diffusion`, `act`, `tdmpc`)
+- `--batch-size`: Training batch size (default: `8`)
+- `--num-epochs`: Number of epochs (default: `100`)
+- `--device`: Device (`cuda` or `cpu`)
 
 ---
 
@@ -122,7 +152,118 @@ python hdf5_to_lerobot.py \
 
 ---
 
+## Training Details
+
+<details>
+<summary><b>Click to expand training guide</b></summary>
+
+### Prerequisites
+
+```bash
+# Ensure LeRobot is installed in your environment
+python -c "import lerobot; print(f'LeRobot {lerobot.__version__}')"
+
+# Should output: LeRobot 0.3.x
+```
+
+### Load Dataset (LeRobot 0.3.x)
+
+```python
+from lerobot.datasets.lerobot_dataset import LeRobotDataset
+from pathlib import Path
+
+# Load local dataset (requires valid repo_id + root path)
+ds = LeRobotDataset(
+    repo_id='local/pika_dataset',
+    root=str(Path('./lerobot_data').resolve())
+)
+
+print(f"Episodes: {ds.meta.info['total_episodes']}")
+print(f"Frames: {ds.meta.info['total_frames']}")
+```
+
+### Training Commands
+
+**Quick Test (3 epochs)**:
+```bash
+lerobot train \
+  --dataset-repo-id local/pika_dataset \
+  --root ./lerobot_data \
+  --policy-name diffusion \
+  --output-dir ./outputs/test \
+  --num-epochs 3 \
+  --batch-size 2 \
+  --device cuda
+```
+
+**Full Training**:
+```bash
+lerobot train \
+  --dataset-repo-id local/pika_dataset \
+  --root ./lerobot_data \
+  --policy-name diffusion \
+  --output-dir ./outputs \
+  --num-epochs 100 \
+  --batch-size 8 \
+  --lr 1e-4 \
+  --device cuda \
+  --eval-freq 10
+```
+
+**With Weights & Biases**:
+```bash
+lerobot train \
+  --dataset-repo-id local/pika_dataset \
+  --root ./lerobot_data \
+  --policy-name diffusion \
+  --output-dir ./outputs \
+  --wandb-project pika-training \
+  --wandb-entity your-username
+```
+
+### Available Policies
+
+| Policy | Description | Best For |
+|--------|-------------|----------|
+| `diffusion` | Diffusion Policy | Smooth trajectories (recommended) |
+| `act` | Action Chunking Transformer | Sequential tasks |
+| `tdmpc` | TD-MPC | Model-based RL |
+
+### Data Requirements
+
+- **Minimum**: 10+ episodes for meaningful training
+- **Recommended**: 50-100 episodes for robust policies
+- **Current dataset**: 1 episode (validation only)
+
+</details>
+
+---
+
 ## Troubleshooting
+
+### ModuleNotFoundError: No module named 'lerobot.common'
+**Cause**: Using code for LeRobot 0.4.x+ on version 0.3.x
+
+**Solution**: Use correct import path
+```python
+# Change this (0.4.x+):
+from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
+
+# To this (0.3.x):
+from lerobot.datasets.lerobot_dataset import LeRobotDataset
+```
+
+### HFValidationError: Repo id must use alphanumeric chars
+**Cause**: Invalid repo_id format (e.g., `./lerobot_data`)
+
+**Solution**: Use valid repo_id + root parameter
+```python
+# Wrong:
+ds = LeRobotDataset('./lerobot_data')
+
+# Correct:
+ds = LeRobotDataset(repo_id='local/pika_dataset', root='./lerobot_data')
+```
 
 ### ModuleNotFoundError: lerobot
 ```bash
@@ -152,12 +293,12 @@ sudo usermod -a -G dialout $USER
 ## Example Workflow
 
 ```bash
-# Capture 3 episodes
+# 1. Capture 3 episodes
 python data_capture.py --episode 0 --fps 30
 python data_capture.py --episode 1 --fps 30
 python data_capture.py --episode 2 --fps 30
 
-# Convert to HDF5
+# 2. Convert to HDF5
 for i in 0 1 2; do
     python data_to_hdf5.py \
         --type single_pika \
@@ -166,12 +307,20 @@ for i in 0 1 2; do
         --useIndex True
 done
 
-# Convert to LeRobot
+# 3. Convert to LeRobot
 python hdf5_to_lerobot.py \
     --type single_pika \
     --datasetDir ./captured_data \
     --datasetName pika_demo \
     --targetDir ./lerobot_data
+
+# 4. Train policy (optional)
+lerobot train \
+    --dataset-repo-id local/pika_dataset \
+    --root ./lerobot_data \
+    --policy-name diffusion \
+    --output-dir ./outputs \
+    --num-epochs 100
 ```
 
 ---
@@ -192,9 +341,11 @@ python hdf5_to_lerobot.py \
 | `data_capture.py` | Data capture with master clock sync | 21KB |
 | `data_to_hdf5.py` | HDF5 format converter | 31KB |
 | `hdf5_to_lerobot.py` | LeRobot format converter | 16KB |
-| `single_pika_data_params.yaml` | Sensor configuration | 1.8KB |
+| `train.py` | Training helper script | 3.9KB |
+| `single_pika_data_params.yaml` | Sensor configuration | 501B |
 | `requirements.txt` | Python dependencies | 773B |
-| `README.md` | This document | - |
+| `LEROBOT_VERSION_NOTES.md` | LeRobot 0.3.x compatibility notes | 4.1KB |
+| `README.md` | Complete documentation | - |
 
 ---
 
@@ -214,3 +365,9 @@ python hdf5_to_lerobot.py \
 - **Pika SDK**: https://github.com/agilexrobotics/pika_sdk
 - **Ufactory Teleop**: https://github.com/xArm-Developer/ufactory_teleop
 - **LeRobot**: https://github.com/huggingface/lerobot
+
+---
+
+**Version**: v1.5.0  
+**Last Update**: 2024-10-22  
+**LeRobot Compatibility**: 0.3.x
