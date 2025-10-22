@@ -12,8 +12,6 @@ Multi-sensor synchronized data capture and conversion toolkit for Pika Sense (Py
 
 ```bash
 # 1. Install dependencies
-conda create -y -n pika python=3.10
-conda activate pika
 pip install -r requirements.txt
 pip install git+https://github.com/agilexrobotics/pika_sdk.git@master
 
@@ -239,57 +237,6 @@ lerobot train \
 
 ---
 
-## Troubleshooting
-
-### ModuleNotFoundError: No module named 'lerobot.common'
-**Cause**: Using code for LeRobot 0.4.x+ on version 0.3.x
-
-**Solution**: Use correct import path
-```python
-# Change this (0.4.x+):
-from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
-
-# To this (0.3.x):
-from lerobot.datasets.lerobot_dataset import LeRobotDataset
-```
-
-### HFValidationError: Repo id must use alphanumeric chars
-**Cause**: Invalid repo_id format (e.g., `./lerobot_data`)
-
-**Solution**: Use valid repo_id + root parameter
-```python
-# Wrong:
-ds = LeRobotDataset('./lerobot_data')
-
-# Correct:
-ds = LeRobotDataset(repo_id='local/pika_dataset', root='./lerobot_data')
-```
-
-### ModuleNotFoundError: lerobot
-```bash
-pip uninstall lerobot -y
-pip install lerobot>=0.3.0
-```
-
-### Camera not found
-```bash
-lsusb | grep Intel       # Check RealSense
-ls /dev/video*           # Check Dexcin (should be /dev/video6)
-```
-
-### Serial port permission error
-```bash
-sudo usermod -a -G dialout $USER
-# Logout and login to apply
-```
-
-### Low FPS / Missed frames
-- Use USB 3.0 port
-- Lower FPS: `--fps 20`
-- Close other CPU-intensive programs
-
----
-
 ## Example Workflow
 
 ```bash
@@ -327,10 +274,9 @@ lerobot train \
 
 ## System Requirements
 
-- **OS**: Ubuntu 20.04+
+- **OS**: Ubuntu 20.04/22.04/24.04
 - **Python**: 3.10+
-- **RAM**: 16GB+ (recommended)
-- **Hardware**: RealSense D405, Dexcin Fisheye, Pika Sense, Vive Tracker
+- **Hardware**: Pika Sense, Ufactory Robots(Lite6, xArm 5/6/7 or 850)
 
 ---
 
@@ -346,17 +292,6 @@ lerobot train \
 | `requirements.txt` | Python dependencies | 773B |
 | `README.md` | Complete documentation | - |
 
----
-
-## Features
-
-✅ **Master Clock Sync** - All sensors share unified timestamp (< 0.001ms error)  
-✅ **Data Integrity** - 100% frame alignment guarantee  
-✅ **ROS-Free** - Pure Python implementation  
-✅ **Auto Indexing** - Automatic sync.txt generation  
-✅ **Complete Pipeline** - From capture to training  
-
----
 
 ## References
 
