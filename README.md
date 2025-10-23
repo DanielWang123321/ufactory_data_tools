@@ -1,10 +1,8 @@
 # UFactory Data Tools
 
-Multi-sensor synchronized data capture and conversion toolkit for Pika Sense (Python, no ROS required)
+Multi-sensor data capture and LeRobot training toolkit for Pika Sense robots.
 
-**Complete Pipeline**: Data Capture → HDF5 → LeRobot Format
-
-**LeRobot Version**: 0.3.x compatible
+**Pipeline**: Data Capture → HDF5 → LeRobot → Training
 
 ---
 
@@ -13,10 +11,11 @@ Multi-sensor synchronized data capture and conversion toolkit for Pika Sense (Py
 ```bash
 # 1. Install dependencies
 pip install -r requirements.txt
+pip install lerobot==0.3.3
 pip install git+https://github.com/agilexrobotics/pika_sdk.git@master
 
-# 2. Serial port permission (first time)
-sudo usermod -a -G dialout $USER  # Logout and login required
+# 2. Serial port permission (first time only)
+sudo usermod -a -G dialout $USER  # Logout/login required
 
 # 3. Capture data
 python data_capture.py --episode 0 --fps 30
@@ -28,24 +27,15 @@ Press `Ctrl+C` to stop. Data saved to `captured_data/episode0/`
 
 ## Data Pipeline
 
-### Step 1: Data Capture
+### 1. Data Capture
 
 ```bash
 python data_capture.py --episode 0 --fps 30
 ```
 
-**Output Structure:**
-```
-captured_data/episode0/
-├── camera/color/pikaDepthCamera/    # RealSense D405
-├── camera/color/pikaFisheyeCamera/  # Fisheye camera
-├── camera/depth/pikaDepthCamera/    # Depth images
-├── gripper/encoder/pika/            # Gripper distance (mm)
-├── localization/pose/pika/          # 6DOF pose (x,y,z, roll,pitch,yaw)
-└── statistics.json
-```
+Output: `captured_data/episode0/` (RealSense, fisheye, depth, gripper, pose)
 
-### Step 2: Convert to HDF5
+### 2. Convert to HDF5
 
 ```bash
 python data_to_hdf5.py \
@@ -55,9 +45,9 @@ python data_to_hdf5.py \
     --useIndex True
 ```
 
-**Output:** `captured_data/episode0/data.hdf5`
+Output: `captured_data/episode0/data.hdf5`
 
-### Step 3: Convert to LeRobot Format
+### 3. Convert to LeRobot
 
 ```bash
 python hdf5_to_lerobot.py \
@@ -67,70 +57,102 @@ python hdf5_to_lerobot.py \
     --targetDir ./lerobot_data
 ```
 
-**Output:** LeRobot dataset with videos (MP4) and data (Parquet)
+Output: `lerobot_data/` (v2.1 format, compatible with LeRobot 0.3.3)
 
-### Step 4: Verify Dataset (Optional)
+### 4. Verify Dataset (Optional)
 
 ```bash
-# Verify LeRobot dataset is correctly formatted
-python train.py
+python verify_dataset.py
 ```
 
-**Output:** Dataset validation report (episodes, frames, observations)
+Output: Dataset statistics and structure
 
 ---
 
-## Command Line Arguments
+## Training
+
+### Test Run (100 steps)
+
+```bash
+python -m lerobot.scripts.train \
+    --dataset.repo_id=lerobot_data \
+    --dataset.root=./lerobot_data \
+    --policy.type=act \
+    --policy.push_to_hub=false \
+    --steps=100 \
+    --batch_size=2 \
+    --output_dir=./outputs/test
+```
+
+### Full Training (10,000 steps)
+
+```bash
+python -m lerobot.scripts.train \
+    --dataset.repo_id=lerobot_data \
+    --dataset.root=./lerobot_data \
+    --policy.type=act \
+    --policy.push_to_hub=false \
+    --steps=10000 \
+    --batch_size=8 \
+    --optimizer.lr=1e-4 \
+    --eval_freq=1000 \
+    --save_freq=5000 \
+    --output_dir=./outputs/training
+```
+
+**GPU Settings**:
+- 8GB GPU: `--batch_size=4`
+- 16GB+ GPU: `--batch_size=8` or higher
+
+**Policies**: `act`, `diffusion`, `tdmpc` (ACT recommended for manipulation)
+
+See `TRAINING_GUIDE.md` for detailed parameters.
+
+---
+
+## Key Arguments
 
 ### data_capture.py
-- `--config`: YAML config file (default: `./single_pika_data_params.yaml`)
-- `--output`: Output directory (default: `./captured_data`)
-- `--episode`: Episode number (default: `0`)
-- `--fps`: Capture frame rate (default: `30`)
+- `--episode`: Episode number
+- `--fps`: Frame rate (default: 30)
 
 ### data_to_hdf5.py
 - `--type`: Robot type (`single_pika`)
-- `--datasetDir`: Dataset root directory
-- `--episodeName`: Episode name (e.g., `episode0`)
-- `--useIndex`: Use index mode (recommended: `True`)
+- `--datasetDir`: Dataset directory
+- `--episodeName`: Episode name
+- `--useIndex`: Use index mode (`True` recommended)
 
 ### hdf5_to_lerobot.py
 - `--type`: Robot type (`single_pika`)
-- `--datasetDir`: Directory containing HDF5 files
-- `--datasetName`: LeRobot dataset name
+- `--datasetDir`: HDF5 directory
 - `--targetDir`: Output directory
 
-### train.py
-- `--dataset-repo-id`: Dataset repo ID (default: `local/pika_dataset`)
-- `--dataset-root`: Local dataset path (default: `./lerobot_data`)
+### verify_dataset.py
+- `--dataset-root`: Dataset path (default: `./lerobot_data`)
 
 ---
 
+## Requirements
 
-## System Requirements
-
-- **OS**: Ubuntu 20.04/22.04/24.04
-- **Python**: 3.10+
-- **Hardware**: Pika Sense, Ufactory Robots(Lite6, xArm 5/6/7 or 850)
+- Ubuntu 20.04+
+- Python 3.10+
+- LeRobot 0.3.3 (do NOT use 0.3.4)
+- NVIDIA GPU with CUDA (recommended for training)
 
 ---
 
 ## Files
 
-| File | Description | Size |
-|------|-------------|------|
-| `data_capture.py` | Data capture with master clock sync | 21KB |
-| `data_to_hdf5.py` | HDF5 format converter | 31KB |
-| `hdf5_to_lerobot.py` | LeRobot format converter | 16KB |
-| `train.py` | Training helper script | 3.9KB |
-| `single_pika_data_params.yaml` | Sensor configuration | 501B |
-| `requirements.txt` | Python dependencies | 773B |
-| `README.md` | Complete documentation | - |
+| File | Description |
+|------|-------------|
+| `data_capture.py` | Multi-sensor synchronized capture |
+| `data_to_hdf5.py` | HDF5 converter |
+| `hdf5_to_lerobot.py` | LeRobot v2.1 converter |
+| `verify_dataset.py` | Dataset validation |
+| `single_pika_data_params.yaml` | Sensor configuration |
 
 
 ## References
 
-- **Pika ROS**: https://github.com/agilexrobotics/pika_ros
-- **Pika SDK**: https://github.com/agilexrobotics/pika_sdk
-- **Ufactory Teleop**: https://github.com/xArm-Developer/ufactory_teleop
-- **LeRobot**: https://github.com/huggingface/lerobot
+- [Pika SDK](https://github.com/agilexrobotics/pika_sdk)
+- [LeRobot](https://github.com/huggingface/lerobot)
