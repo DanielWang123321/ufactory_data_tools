@@ -1,7 +1,8 @@
 """
-Script to convert Aloha hdf5 data to the LeRobot dataset v2.0 format.
+Convert UFactory/Pika Sense HDF5 data to the LeRobot dataset v3.0 format required by lerobot==0.4.1.
 
-Example usage: uv run examples/aloha_real/convert_aloha_data_to_lerobot.py --raw-dir /path/to/raw/data --repo-id <org>/<dataset-name>
+Example usage:
+python hdf5_to_lerobot.py --type single_pika --datasetDir ./captured_data --datasetName local/pika --targetDir ./lerobot_data
 """
 
 import dataclasses
@@ -10,16 +11,13 @@ import shutil
 from typing import Literal
 
 import h5py
-# from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
 import numpy as np
 import torch
 import tqdm
-import tyro
 import cv2
 import os
 import argparse
-import math
 import yaml
 
 
@@ -30,6 +28,10 @@ class DatasetConfig:
     image_writer_processes: int = 8
     image_writer_threads: int = 8
     video_backend: str | None = None
+    chunks_size: int | None = None
+    data_files_size_in_mb: int | None = None
+    video_files_size_in_mb: int | None = None
+    batch_encoding_size: int = 1
 
 
 DEFAULT_DATASET_CONFIG = DatasetConfig()
@@ -122,7 +124,7 @@ def create_empty_dataset(
                 "shape": ((args.pointNum * 6),)
             }
 
-    return LeRobotDataset.create(
+    dataset = LeRobotDataset.create(
         repo_id=args.datasetName,
         root=args.targetDir,
         fps=args.fps,
@@ -133,7 +135,19 @@ def create_empty_dataset(
         image_writer_processes=dataset_config.image_writer_processes,
         image_writer_threads=dataset_config.image_writer_threads,
         video_backend=dataset_config.video_backend,
+        batch_encoding_size=dataset_config.batch_encoding_size,
     )
+    if (
+        dataset_config.chunks_size is not None
+        or dataset_config.data_files_size_in_mb is not None
+        or dataset_config.video_files_size_in_mb is not None
+    ):
+        dataset.meta.update_chunk_settings(
+            chunks_size=dataset_config.chunks_size,
+            data_files_size_in_mb=dataset_config.data_files_size_in_mb,
+            video_files_size_in_mb=dataset_config.video_files_size_in_mb,
+        )
+    return dataset
 
 
 def load_episode_data(
@@ -205,6 +219,11 @@ def populate_dataset(
     task: str,
 ) -> LeRobotDataset:
     error_file = []
+    task_label = "null"
+    if task is not None:
+        stripped = str(task).strip()
+        if stripped:
+            task_label = stripped
     episodes = range(len(hdf5_files))
     for ep_idx in tqdm.tqdm(episodes):
         episode_path = hdf5_files[ep_idx]
@@ -215,9 +234,9 @@ def populate_dataset(
 
             for i in range(num_frames):
                 frame = {
-                    # 'task': task,
                     "observation.state": states[i],
                     "action": actions[i],
+                    "task": task_label,
                 }
                 for camera, color in colors.items():
                     frame[f"observation.images.{camera}"] = color[i]
@@ -226,7 +245,7 @@ def populate_dataset(
                 if args.useCameraPointCloud:
                     for camera, pointcloud in pointclouds.items():
                         frame[f"observation.pointClouds.{camera}"] = pointcloud[i]
-                dataset.add_frame(frame, task)
+                dataset.add_frame(frame)
                 frame = None
 
             dataset.save_episode()
@@ -235,9 +254,9 @@ def populate_dataset(
     
     # Print processing summary
     if len(error_file) == 0:
-        print(f"✓ Successfully processed all {len(hdf5_files)} episode(s)")
+        print(f"[OK] Successfully processed all {len(hdf5_files)} episode(s)")
     else:
-        print(f"✗ Failed to process {len(error_file)} episode(s):")
+        print(f"[WARN] Failed to process {len(error_file)} episode(s):")
         for path in error_file:
             print(f"  - {path}")
     

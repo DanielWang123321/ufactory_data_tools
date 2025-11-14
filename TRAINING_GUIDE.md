@@ -1,4 +1,4 @@
-# Training Guide - LeRobot 0.3.3
+# Training Guide - LeRobot 0.4.1
 
 Quick reference for training robot policies.
 
@@ -7,10 +7,11 @@ Quick reference for training robot policies.
 ## Installation
 
 ```bash
-pip install lerobot==0.3.3
+python -m pip install --upgrade pip
+pip install -r requirements.txt  # installs lerobot==0.4.1
 ```
 
-**Important**: Use 0.3.3 (not 0.3.4)
+**Important**: 0.4.1 expects datasets in codebase version `v3.0`. Reconvert or upgrade old datasets before training.
 
 ---
 
@@ -19,7 +20,7 @@ pip install lerobot==0.3.3
 ### Test Run (100 steps, ~1 min)
 
 ```bash
-python -m lerobot.scripts.train \
+python -m lerobot.scripts.lerobot_train \
     --dataset.repo_id=lerobot_data \
     --dataset.root=./lerobot_data \
     --policy.type=act \
@@ -32,7 +33,7 @@ python -m lerobot.scripts.train \
 ### Full Training (10,000 steps, ~2-3 hrs)
 
 ```bash
-python -m lerobot.scripts.train \
+python -m lerobot.scripts.lerobot_train \
     --dataset.repo_id=lerobot_data \
     --dataset.root=./lerobot_data \
     --policy.type=act \
@@ -135,7 +136,8 @@ watch -n 1 nvidia-smi
 |-------|----------|
 | "Repository Not Found" | Add `--policy.push_to_hub=false` |
 | CUDA out of memory | Reduce batch size: `--batch_size=4` |
-| Dataset version mismatch | Use LeRobot 0.3.3 + v2.1 dataset |
+| Dataset version mismatch | Ensure LeRobot 0.4.1 is installed and dataset was exported in v3.0 format |
+| `ForwardCompatibilityError` | Run `python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 --root ./lerobot_data --repo-id <id>` or rerun `hdf5_to_lerobot.py` |
 
 ---
 
